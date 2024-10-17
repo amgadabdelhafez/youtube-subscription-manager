@@ -14,6 +14,7 @@ import random
 import argparse
 from bs4 import BeautifulSoup
 import traceback
+import re
 
 # Define the scope for YouTube Data API
 SCOPES = ['https://www.googleapis.com/auth/youtube.force-ssl']
@@ -137,7 +138,7 @@ def update_database_schema(db_name="subscriptions.db"):
     conn = sqlite3.connect(db_name)
     cursor = conn.cursor()
     try:
-        # Check if the table exists
+        # Check if the subscriptions table exists
         cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='subscriptions'")
         if cursor.fetchone() is None:
             # If the table doesn't exist, create it with all columns
@@ -168,6 +169,19 @@ def update_database_schema(db_name="subscriptions.db"):
                 except sqlite3.OperationalError:
                     # Column already exists, skip
                     pass
+        
+        # Check if the watch_history table exists
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='watch_history'")
+        if cursor.fetchone() is None:
+            # If the table doesn't exist, create it
+            cursor.execute('''CREATE TABLE watch_history 
+                              (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                               title TEXT,
+                               url TEXT,
+                               watch_time TEXT,
+                               video_id TEXT,
+                               channel_id TEXT)''')
+        
         conn.commit()
         log("Database schema updated successfully.")
     except sqlite3.Error as e:
@@ -382,31 +396,74 @@ def import_subscriptions(source_youtube, target_youtube, max_ops=None):
     
     log("Subscription import completed.")
 
-def process_watch_history(file_path):
+
+
+
+
+def process_watch_history(file_path, max_ops=None):
     log(f"Processing watch history from {file_path}...")
+    watch_history = []
     with open(file_path, 'r', encoding='utf-8') as file:
-        soup = BeautifulSoup(file, 'html.parser')
-    
+        chunk_size = 1024 * 1024  # 1MB chunks
+        while len(watch_history) < max_ops:
+            chunk = file.read(chunk_size)
+            if not chunk:
+                break
+            watch_history = process_chunk(chunk, max_ops)
+
+        log(f"Total {len(watch_history)} watch history items.")
+        return watch_history
+
+def process_chunk(chunk, max_ops):
+    soup = BeautifulSoup(chunk, 'html.parser')
+    # Process the chunk here
+    # For example: find specific tags or extract data    
     watch_history = []
     for item in soup.find_all('div', class_='content-cell mdl-cell mdl-cell--6-col mdl-typography--body-1'):
+        if max_ops is not None and len(watch_history) >= max_ops:
+            break
         video_title = item.find('a')
         if video_title:
             watch_time = item.find('br').next_sibling.strip()
+            url = video_title['href']
+            video_id = re.search(r'v=([^&]+)', url)
+            channel_id = re.search(r'channel/([^/]+)', url)
             watch_history.append({
                 'title': video_title.text,
-                'url': video_title['href'],
-                'watch_time': watch_time
+                'url': url,
+                'watch_time': watch_time,
+                'video_id': video_id.group(1) if video_id else None,
+                'channel_id': channel_id.group(1) if channel_id else None
             })
     
-    log(f"Processed {len(watch_history)} watch history items.")
+    log(f"Processed chunk complete, {len(watch_history)} watch history items processed.")
     return watch_history
+
+def store_watch_history_in_db(watch_history, db_name="subscriptions.db"):
+    log(f"Storing {len(watch_history)} watch history items in {db_name}...")
+    conn = sqlite3.connect(db_name)
+    cursor = conn.cursor()
+    
+    try:
+        cursor.executemany('''INSERT OR REPLACE INTO watch_history 
+                              (title, url, watch_time, video_id, channel_id) 
+                              VALUES (?, ?, ?, ?, ?)''', 
+                           [(item['title'], item['url'], item['watch_time'], 
+                             item['video_id'], item['channel_id']) for item in watch_history])
+        
+        conn.commit()
+        log(f"Watch history stored in database.")
+    except sqlite3.Error as e:
+        log(f"An error occurred while storing watch history: {e}")
+    finally:
+        conn.close()
 
 def main():
     parser = argparse.ArgumentParser(description="YouTube Subscription Manager")
     parser.add_argument('mode', choices=['update', 'import', 'history'],
                         help="Mode of operation: update DB, import subscriptions, or process watch history")
     parser.add_argument('--history-file', help="Path to the watch-history.html file (required for 'history' mode)")
-    parser.add_argument('--max-ops', type=int, help="Maximum number of channels to process")
+    parser.add_argument('--max-ops', type=int, help="Maximum number of operations to perform")
     args = parser.parse_args()
 
     try:
@@ -454,9 +511,9 @@ def main():
             if not args.history_file:
                 log("Error: --history-file is required for 'history' mode")
                 return
-            watch_history = process_watch_history(args.history_file)
-            # You can add further processing or storage of watch history here
-            log(f"Processed {len(watch_history)} watch history items.")
+            watch_history = process_watch_history(args.history_file, args.max_ops)
+            store_watch_history_in_db(watch_history)
+            log(f"Processed and stored {len(watch_history)} watch history items.")
         
     except Exception as e:
         log(f"An unexpected error occurred: {str(e)}")
