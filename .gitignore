@@ -32,3 +32,4 @@ progress.json
 # Takeout files
 watch-history/
 .DS_Store
+quota_details.json

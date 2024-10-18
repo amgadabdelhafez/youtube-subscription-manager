@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime
 import time
 import random
@@ -7,7 +8,7 @@ from googleapiclient.errors import HttpError
 MAX_RETRIES = 5
 
 def log(message):
-    print(f"[LOG] {message}")
+    logging.info(message)
 
 def parse_datetime(date_string):
     try:
@@ -23,11 +24,11 @@ def exponential_backoff(func):
             except HttpError as e:
                 if e.resp.status in [403, 500, 503]:
                     wait_time = (2 ** i) + random.random()
-                    log(f"Rate limit hit. Waiting for {wait_time:.2f} seconds.")
+                    logging.warning(f"Rate limit hit. Waiting for {wait_time:.2f} seconds.")
                     time.sleep(wait_time)
                 else:
                     raise
-        log("Max retries reached. Giving up.")
+        logging.error("Max retries reached. Giving up.")
         return None
     return wrapper
 

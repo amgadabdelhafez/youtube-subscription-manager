@@ -41,6 +41,16 @@ def update_database_schema(db_name="subscriptions.db"):
                             account_id INTEGER,
                             FOREIGN KEY (account_id) REFERENCES accounts(id))''')
 
+        # Create problematic_subscriptions table
+        cursor.execute('''CREATE TABLE IF NOT EXISTS problematic_subscriptions
+                          (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                           channel_id TEXT,
+                           account_id INTEGER,
+                           reason TEXT,
+                           flagged_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                           FOREIGN KEY (account_id) REFERENCES accounts(id),
+                           UNIQUE(channel_id, account_id))''')
+
         conn.commit()
     except sqlite3.Error as e:
         log(f"An error occurred while updating the database schema: {e}")
@@ -199,5 +209,23 @@ def get_last_watch_history_item(account_id, db_name="subscriptions.db"):
     except sqlite3.Error as e:
         log(f"An error occurred while retrieving the last watch history item: {e}")
         return None
+    finally:
+        conn.close()
+
+def flag_problematic_subscription(account_id, channel_id, reason, db_name="subscriptions.db"):
+    log(f"Flagging problematic subscription: Account ID {account_id}, Channel ID {channel_id}, Reason: {reason}")
+    conn = get_db_connection(db_name)
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute('''INSERT OR REPLACE INTO problematic_subscriptions 
+                          (channel_id, account_id, reason) 
+                          VALUES (?, ?, ?)''', 
+                       (channel_id, account_id, reason))
+        
+        conn.commit()
+        log(f"Problematic subscription flagged: Channel ID {channel_id}")
+    except sqlite3.Error as e:
+        log(f"An error occurred while flagging problematic subscription: {e}")
     finally:
         conn.close()

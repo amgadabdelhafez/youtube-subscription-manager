@@ -1,0 +1,47 @@
+2024-10-18 14:02:03,851 - INFO - Starting YouTube Subscription Manager
+2024-10-18 14:02:03,852 - INFO - Loaded quota details from file.
+2024-10-18 14:02:03,852 - INFO - Quota usage: 9570
+2024-10-18 14:02:03,852 - INFO - Remaining quota: 430
+2024-10-18 14:02:03,852 - INFO - Estimated processable subscriptions: 8
+2024-10-18 14:02:03,860 - INFO - Authenticating amgadpasha account...
+2024-10-18 14:02:03,860 - INFO - Token file found. Loading credentials...
+2024-10-18 14:02:03,864 - INFO - Authentication for amgadpasha account completed.
+2024-10-18 14:02:03,867 - INFO - file_cache is only supported with oauth2client<4.0.0
+2024-10-18 14:02:03,873 - INFO - Authenticating amgadabdelhafez account...
+2024-10-18 14:02:03,873 - INFO - Token file found. Loading credentials...
+2024-10-18 14:02:03,874 - INFO - Authentication for amgadabdelhafez account completed.
+2024-10-18 14:02:03,875 - INFO - file_cache is only supported with oauth2client<4.0.0
+2024-10-18 14:02:03,879 - INFO - Importing subscriptions from source to target account...
+2024-10-18 14:02:03,933 - INFO - Resuming import from channel ID: UC-tQ9p0NwVdSXQjj3AZq6dg
+2024-10-18 14:02:03,933 - INFO - Found 60 new subscriptions to import.
+2024-10-18 14:02:03,933 - INFO - Attempting to import subscription:  (ID: UC-XbFeFFzNbAUENC8Ofpn3g)
+2024-10-18 14:02:03,933 - INFO - Attempt 1 to subscribe to  (ID: UC-XbFeFFzNbAUENC8Ofpn3g)
+2024-10-18 14:02:04,303 - WARNING - Channel not found for  (ID: UC-XbFeFFzNbAUENC8Ofpn3g). It may have been deleted or made private.
+2024-10-18 14:02:04,304 - INFO - Flagging problematic subscription: Account ID 2, Channel ID UC-XbFeFFzNbAUENC8Ofpn3g, Reason: channel_not_found
+2024-10-18 14:02:04,306 - INFO - Problematic subscription flagged: Channel ID UC-XbFeFFzNbAUENC8Ofpn3g
+2024-10-18 14:02:04,306 - INFO - Storing subscription in database:  (ID: UC-XbFeFFzNbAUENC8Ofpn3g)
+2024-10-18 14:02:04,306 - INFO - Storing 1 subscriptions for account ID 2
+2024-10-18 14:02:04,307 - INFO - Updated existing channel:  (UC-XbFeFFzNbAUENC8Ofpn3g)
+2024-10-18 14:02:04,307 - INFO - Database transaction committed. Updated 1 channels, added 0 new channels.
+2024-10-18 14:02:04,307 - INFO - Updated database for  in source account.
+2024-10-18 14:02:05,312 - INFO - Attempting to import subscription: Eye on AI (ID: UC-o9u9QL4zXzBwjvT1gmzNg)
+2024-10-18 14:02:05,312 - INFO - Attempt 1 to subscribe to Eye on AI (ID: UC-o9u9QL4zXzBwjvT1gmzNg)
+2024-10-18 14:02:05,525 - INFO - Already subscribed to Eye on AI in target account.
+2024-10-18 14:02:05,526 - INFO - Storing subscription in database: Eye on AI (ID: UC-o9u9QL4zXzBwjvT1gmzNg)
+2024-10-18 14:02:05,526 - INFO - Storing 1 subscriptions for account ID 2
+2024-10-18 14:02:05,527 - INFO - Updated existing channel: Eye on AI (UC-o9u9QL4zXzBwjvT1gmzNg)
+2024-10-18 14:02:05,527 - INFO - Database transaction committed. Updated 1 channels, added 0 new channels.
+2024-10-18 14:02:05,527 - INFO - Updated database for Eye on AI in source account.
+2024-10-18 14:02:06,528 - INFO - Reached max operations limit (2). Stopping import.
+2024-10-18 14:02:06,529 - INFO - Subscription import completed.
+2024-10-18 14:02:06,529 - INFO - Total processed: 2
+2024-10-18 14:02:06,529 - INFO - Successfully imported: 0
+2024-10-18 14:02:06,529 - INFO - Already subscribed: 1
+2024-10-18 14:02:06,529 - INFO - Failed to import: 1
+2024-10-18 14:02:06,529 - INFO - Quota usage: 9570
+2024-10-18 14:02:06,530 - INFO - Remaining quota: 430
+2024-10-18 14:02:06,530 - INFO - Estimated processable subscriptions: 8
+2024-10-18 14:02:06,530 - INFO - Estimated number of additional subscriptions that can be processed: 8
+2024-10-18 14:02:06,530 - WARNING - Remaining quota is low: 430 units (less than 10% of daily quota)
+2024-10-18 14:02:06,530 - WARNING - Consider pausing operations to avoid hitting the quota limit
+2024-10-18 14:02:06,531 - INFO - YouTube Subscription Manager finished
