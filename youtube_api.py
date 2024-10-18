@@ -1,7 +1,8 @@
 from googleapiclient.errors import HttpError
-from utils import log, exponential_backoff, parse_datetime, check_quota_status, get_quota_usage, update_quota_usage, save_progress
+from utils import log, exponential_backoff, parse_datetime, check_quota_status, get_quota_usage, update_quota_usage, save_progress, load_progress
 from datetime import datetime, timedelta
 import time
+from database import store_subscriptions_in_db, get_existing_subscriptions
 
 QUOTA_COST_LIST = 1
 QUOTA_COST_CHANNEL = 1
@@ -110,11 +111,7 @@ def list_subscriptions(youtube, existing_subs, account_id, max_ops=None):
                 log(f"Processing channel: {channel_info['title']} ({channel_id})")
                 
                 # Check if we need to update the channel details
-                if channel_id not in existing_subs or (
-                    existing_subs[channel_id] != 'N/A' and
-                    existing_subs[channel_id] is not None and
-                    parse_datetime(existing_subs[channel_id]) < datetime.now() - timedelta(days=7)
-                ):
+                if channel_id not in existing_subs:
                     if not check_quota_status():
                         break
                     # Get additional channel details
@@ -144,35 +141,70 @@ def list_subscriptions(youtube, existing_subs, account_id, max_ops=None):
     log(f"Found {len(subscriptions)} subscriptions.")
     return subscriptions
 
+def check_subscription_exists(youtube, channel_id):
+    try:
+        request = youtube.subscriptions().list(
+            part="snippet",
+            mine=True,
+            forChannelId=channel_id,
+            maxResults=1
+        )
+        response = request.execute()
+        return 'items' in response and len(response['items']) > 0
+    except HttpError as e:
+        log(f"An error occurred while checking subscription for channel {channel_id}: {e}")
+        return False
+
 def import_subscriptions(source_youtube, target_youtube, source_account_id, target_account_id, max_ops=None):
     log("Importing subscriptions from source to target account...")
-    existing_subs = get_existing_subscriptions(source_account_id)
-    source_subscriptions = list_subscriptions(source_youtube, existing_subs, source_account_id, max_ops)
+    existing_subs_source, subs_source = get_existing_subscriptions(source_account_id)
+    existing_subs_target, subs_target = get_existing_subscriptions(target_account_id)
+    last_processed = load_progress()
     
-    if not source_subscriptions:
+    if last_processed:
+        log(f"Resuming import from channel ID: {last_processed}")
+    
+    if not source_youtube:
         log("No subscriptions found in the source account.")
         return
     
-    for sub in source_subscriptions:
-        try:
-            target_youtube.subscriptions().insert(
-                part="snippet",
-                body={
-                    "snippet": {
-                        "resourceId": {
-                            "kind": "youtube#channel",
-                            "channelId": sub['channel_id']
+    imported_count = 0
+    for sub in subs_source:
+        if last_processed and sub['channel_id'] == last_processed:
+            log(f"Resuming from channel: {sub['title']}")
+            last_processed = None  # Reset last_processed to continue processing
+            continue
+        
+        if check_subscription_exists(target_youtube, sub['channel_id']):
+            log(f"Channel {sub['title']} already exists in target account. Skipping.")
+        else:
+            try:
+                # Try to insert the subscription into the target YouTube account
+                target_youtube.subscriptions().insert(
+                    part="snippet",
+                    body={
+                        "snippet": {
+                            "resourceId": {
+                                "kind": "youtube#channel",
+                                "channelId": sub['channel_id']
+                            }
                         }
                     }
-                }
-            ).execute()
-            log(f"Subscribed to {sub['title']} in target account.")
-        except HttpError as e:
-            if e.resp.status == 400 and 'subscriptionDuplicate' in str(e):
-                log(f"Already subscribed to {sub['title']} in target account.")
-            else:
-                log(f"Failed to subscribe to {sub['title']}: {e}")
+                ).execute()
+                log(f"Subscribed to {sub['title']} in target account.")
+                imported_count += 1
+            except HttpError as e:
+                if e.resp.status == 400 and 'subscriptionDuplicate' in str(e):
+                    log(f"Already subscribed to {sub['title']} in target account.")
+                else:
+                    log(f"Failed to subscribe to {sub['title']}: {e}")
+                    continue  # Skip updating the database if there was an error
         
+        # Update the local database to reflect this change, regardless of whether it was newly subscribed or already existed
+        store_subscriptions_in_db([sub], target_account_id, 'import')
+        log(f"Updated database for {sub['title']} in target account.")
+        
+        save_progress(sub['channel_id'])
         time.sleep(1)  # Add a delay to avoid hitting rate limits
     
-    log("Subscription import completed.")
+    log(f"Subscription import completed. Processed {len(subs_source)} subscriptions, {imported_count} new subscriptions added to YouTube.")

@@ -31,3 +31,4 @@ progress.json
 
 # Takeout files
 watch-history/
+.DS_Store

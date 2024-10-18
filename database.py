@@ -16,7 +16,7 @@ def update_database_schema(db_name="subscriptions.db"):
                           (id INTEGER PRIMARY KEY AUTOINCREMENT,
                            name TEXT UNIQUE NOT NULL)''')
         
-        # Check if the subscriptions table exists
+        # Check if the subscriptions table exists and update its schema
         cursor.execute('''CREATE TABLE IF NOT EXISTS subscriptions 
                             (channel_id TEXT PRIMARY KEY, 
                             title TEXT, 
@@ -26,10 +26,11 @@ def update_database_schema(db_name="subscriptions.db"):
                             total_videos TEXT,
                             last_upload_date TEXT,
                             upload_frequency TEXT,
-                            account_id INTEGER,
-                            FOREIGN KEY (account_id) REFERENCES accounts(id))''')
+                            account_id_1 INTEGER,
+                            account_id_2 INTEGER,
+                            FOREIGN KEY (account_id_1) REFERENCES accounts(id),
+                            FOREIGN KEY (account_id_2) REFERENCES accounts(id))''')
 
-        
         # Check if the watch_history table exists
         cursor.execute('''CREATE TABLE IF NOT EXISTS watch_history 
                             (id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -41,7 +42,6 @@ def update_database_schema(db_name="subscriptions.db"):
                             account_id INTEGER,
                             FOREIGN KEY (account_id) REFERENCES accounts(id))''')
 
-        
         conn.commit()
         log("Database schema updated successfully.")
     except sqlite3.Error as e:
@@ -68,16 +68,18 @@ def get_existing_subscriptions(account_id, db_name="subscriptions.db"):
     update_database_schema(db_name)
     conn = get_db_connection(db_name)
     cursor = conn.cursor()
-    existing_subs = {}
+    existing_subs = set()
+    subs = []
     try:
-        cursor.execute("SELECT channel_id, last_upload_date FROM subscriptions WHERE account_id = ?", (account_id,))
+        cursor.execute("SELECT channel_id, title FROM subscriptions WHERE account_id_1 = ? OR account_id_2 = ?", (account_id, account_id))
         for row in cursor.fetchall():
-            existing_subs[row[0]] = row[1]
+            existing_subs.add(row[0])
+            subs.append({'channel_id': row[0], 'title': row[1]})
     except sqlite3.Error as e:
         log(f"An error occurred while fetching existing subscriptions: {e}")
     finally:
         conn.close()
-    return existing_subs
+    return existing_subs, subs
 
 def store_subscriptions_in_db(subscriptions, account_id, source="api", db_name="subscriptions.db"):
     log(f"Storing {len(subscriptions)} subscriptions for account ID {account_id} from {source} in {db_name}...")
@@ -86,42 +88,46 @@ def store_subscriptions_in_db(subscriptions, account_id, source="api", db_name="
     updated_channels = []
     
     try:
-        # Debug: Log the first subscription
-        if subscriptions:
-            log(f"Debug: First subscription data: {subscriptions[0]}")
-        else:
-            log("Debug: No subscriptions to store")
-
-        # Start a transaction
         conn.execute("BEGIN")
         
-        # Insert or update the subscriptions
         for sub in subscriptions:
             try:
+                # Check if the subscription already exists
+                cursor.execute("SELECT account_id_1, account_id_2 FROM subscriptions WHERE channel_id = ?", (sub['channel_id'],))
+                existing = cursor.fetchone()
+                
+                if existing:
+                    account_id_1, account_id_2 = existing
+                    if account_id not in (account_id_1, account_id_2):
+                        # Add the new account_id to an empty slot
+                        if account_id_1 is None:
+                            account_id_1 = account_id
+                        elif account_id_2 is None:
+                            account_id_2 = account_id
+                        # If both slots are filled, we don't change anything
+                else:
+                    # New subscription
+                    account_id_1, account_id_2 = account_id, None
+
                 cursor.execute('''INSERT OR REPLACE INTO subscriptions 
-                                  (channel_id, title, description, published_at, created_at, total_videos, last_upload_date, upload_frequency, account_id) 
-                                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)''', 
+                                  (channel_id, title, description, published_at, created_at, total_videos, last_upload_date, upload_frequency, account_id_1, account_id_2) 
+                                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''', 
                                (sub['channel_id'], sub['title'], sub.get('description', 'N/A'), 
                                 sub.get('published_at', 'N/A'), sub.get('created_at', 'N/A'), 
                                 sub.get('total_videos', 'N/A'), sub.get('last_upload_date', 'N/A'),
-                                sub.get('upload_frequency', 'N/A'), account_id))
+                                sub.get('upload_frequency', 'N/A'), account_id_1, account_id_2))
                 updated_channels.append(sub['channel_id'])
             except sqlite3.Error as e:
                 log(f"Error inserting subscription {sub['channel_id']}: {e}")
         
-        log("Debug: About to commit changes...")
         conn.commit()
-        log("Debug: Changes committed.")
         
-        # Verify the insertion immediately after commit
-        cursor.execute("SELECT COUNT(*) FROM subscriptions WHERE account_id = ?", (account_id,))
+        cursor.execute("SELECT COUNT(*) FROM subscriptions WHERE account_id_1 = ? OR account_id_2 = ?", (account_id, account_id))
         count = cursor.fetchone()[0]
-        log(f"Debug: Immediately after commit, total subscriptions in database for account ID {account_id}: {count}")
         
         if count > 0:
-            cursor.execute("SELECT * FROM subscriptions WHERE account_id = ? LIMIT 1", (account_id,))
+            cursor.execute("SELECT * FROM subscriptions WHERE account_id_1 = ? OR account_id_2 = ? LIMIT 1", (account_id, account_id))
             sample_row = cursor.fetchone()
-            log(f"Debug: Sample row from database: {sample_row}")
         
         log(f"Subscriptions for account ID {account_id} stored in database.")
     except sqlite3.Error as e:
@@ -131,13 +137,11 @@ def store_subscriptions_in_db(subscriptions, account_id, source="api", db_name="
     finally:
         conn.close()
     
-    # Double-check after connection is closed and reopened
     conn = get_db_connection(db_name)
     cursor = conn.cursor()
     try:
-        cursor.execute("SELECT COUNT(*) FROM subscriptions WHERE account_id = ?", (account_id,))
+        cursor.execute("SELECT COUNT(*) FROM subscriptions WHERE account_id_1 = ? OR account_id_2 = ?", (account_id, account_id))
         final_count = cursor.fetchone()[0]
-        log(f"Debug: After reopening connection, total subscriptions in database for account ID {account_id}: {final_count}")
     except sqlite3.Error as e:
         log(f"An error occurred while double-checking subscriptions: {e}")
     finally:

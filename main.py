@@ -44,7 +44,6 @@ def main():
     get_parser.add_argument('--account', required=True, help='Account ID')
     get_parser.add_argument('--format', choices=['api', 'csv', 'html', 'json'], required=True, help='Output format')
     get_parser.add_argument('--max-ops', type=int, help='Maximum number of operations')
-    get_parser.add_argument('--csv-file', help='Path to CSV file for importing subscriptions')
 
     # Import command
     import_parser = subparsers.add_parser('import', help='Import subscriptions')
@@ -52,7 +51,6 @@ def main():
     import_parser.add_argument('--from-account', required=True, help='Source account ID')
     import_parser.add_argument('--to-account', required=True, help='Target account ID')
     import_parser.add_argument('--max-ops', type=int, help='Maximum number of operations')
-    import_parser.add_argument('--csv-file', help='Path to CSV file for importing subscriptions')
 
     args = parser.parse_args()
 
@@ -74,9 +72,14 @@ def main():
                 return
 
             if args.subscriptions:
-                if args.format == 'csv' and args.csv_file:
+                if args.format == 'csv':
+                    # Construct the CSV file path using the account name
+                    csv_file = f"watch-history/{args.account}/Takeout/YouTube and YouTube Music/subscriptions/subscriptions.csv"
+                    if not os.path.exists(csv_file):
+                        log(f"Subscriptions CSV file not found: {csv_file}")
+                        return
                     # Import subscriptions from CSV file
-                    subscriptions = parse_subscriptions_csv(args.csv_file)
+                    subscriptions = parse_subscriptions_csv(csv_file)
                     updated_channels = store_subscriptions_in_db(subscriptions, account_id, 'csv')
                     log(f"Imported {len(subscriptions)} subscriptions from CSV file.")
                     log(f"Updated or new channels: {len(updated_channels)}")
@@ -108,7 +111,7 @@ def main():
                         log("No subscriptions found or processed in the source account. This could be due to quota limitations.")
                         return
                     
-                    updated_channels = store_subscriptions_in_db(source_subscriptions, account_id, 'api')
+                    updated_channels = store_subscriptions_in_db(source_subscriptions, account_id)
                     
                     log("\n--- Summary ---")
                     log(f"Total subscriptions processed: {len(source_subscriptions)}")
@@ -122,7 +125,7 @@ def main():
                     log(f"Invalid format '{args.format}' for watch history. Use 'html' or 'json'.")
                     return
 
-                # Assuming the watch history file is in a predefined location
+                # Construct the watch history file path using the account name
                 history_file = f"watch-history/{args.account}/Takeout/YouTube and YouTube Music/history/watch-history.{args.format}"
                 if not os.path.exists(history_file):
                     log(f"Watch history file not found: {history_file}")
@@ -138,9 +141,11 @@ def main():
                 log(f"Failed to get or create accounts")
                 return
 
-            if args.csv_file:
+            # Construct the CSV file path using the from_account name
+            csv_file = f"watch-history/{args.from_account}/Takeout/YouTube and YouTube Music/subscriptions/subscriptions.csv"
+            if os.path.exists(csv_file):
                 # Import subscriptions from CSV file
-                subscriptions = parse_subscriptions_csv(args.csv_file)
+                subscriptions = parse_subscriptions_csv(csv_file)
                 updated_channels = store_subscriptions_in_db(subscriptions, target_account_id)
                 log(f"Imported {len(subscriptions)} subscriptions from CSV file to account {args.to_account}.")
                 log(f"Updated or new channels: {len(updated_channels)}")
