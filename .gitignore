@@ -25,3 +25,9 @@ token*.json
 # Project specific files
 quota_usage.json
 progress.json
+
+# Mac DS_Store files
+.DS_Store
+
+# Takeout files
+watch-history/

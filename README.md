@@ -43,18 +43,18 @@ The script has three modes of operation:
 1. Update mode:
 
    ```
-   python yt_subs.py update [--max-ops NUMBER]
+   python main.py update [--max-ops NUMBER]
    ```
 
 2. Import mode:
 
    ```
-   python yt_subs.py import [--max-ops NUMBER]
+   python main.py import [--max-ops NUMBER]
    ```
 
 3. History mode:
    ```
-   python yt_subs.py history --history-file "/path/to/watch-history.html"
+   python main.py history --history-file "/path/to/watch-history.html"
    ```
 
 Use the `--max-ops` argument to limit the number of channels processed in a single run.
