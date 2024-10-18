@@ -1,13 +1,13 @@
 # YouTube Subscription Manager
 
-This Python script helps manage YouTube subscriptions, allowing users to update a local database of subscriptions, import subscriptions between accounts, and process watch history. It now supports managing subscriptions for multiple accounts.
+This Python script helps manage YouTube subscriptions, allowing users to update a local database of subscriptions, import subscriptions between accounts, and process watch history. It now supports managing subscriptions for multiple accounts and uses real-time quota information from the YouTube API.
 
 ## Features
 
 - Update local database with YouTube subscriptions for multiple accounts
 - Import subscriptions from one YouTube account to another
 - Process watch history from Google Takeout
-- Respect YouTube API quota limits
+- Real-time YouTube API quota management
 - Support for subscriptions shared between two accounts
 
 ## Requirements
@@ -56,9 +56,13 @@ The script has two main commands: `get` and `import`.
 
 Use the `--max-ops` argument to limit the number of operations processed in a single run.
 
+## Quota Management
+
+This script now uses real-time quota information from the YouTube API. It checks the available quota before performing operations and provides estimates of how many subscriptions can be processed with the remaining quota. The script will automatically stop processing when the quota is exhausted and provide information about when the quota will reset.
+
 ## Database Schema
 
-The project now uses a SQLite database with the following main tables:
+The project uses a SQLite database with the following main tables:
 
 1. `accounts`: Stores information about YouTube accounts.
 2. `subscriptions`: Stores channel subscriptions, with support for associating a channel with up to two accounts.
